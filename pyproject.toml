@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pymaster"
+version = "0.1.0"
+description = "Autonomous Local Python AI Coding Engine - Zero Bloat, Runs Anywhere."
+readme = "README.md"
+authors = [{ name = "PyMaster Team" }]
+requires-python = ">=3.10"
+dependencies = [
+    "rich>=13.0.0",
+    "httpx>=0.25.0",
+    "pytest>=8.0.0",
+]
+
+[project.scripts]
+pymaster = "pymaster.cli:main"
