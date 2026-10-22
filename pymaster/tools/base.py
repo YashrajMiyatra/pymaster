@@ -59,7 +59,11 @@ class ToolRegistry:
     def execute(self, name: str, **kwargs) -> Any:
         tool = self.get(name)
         if not tool:
-            return f"Error: Tool '{name}' not found."
+            available = ", ".join(self._tools.keys())
+            return (
+                f"Error: Tool '{name}' does not exist! You can ONLY use one of: [{available}].\n"
+                f"To implement features, create scripts, or organize folders, write the code into a file using 'write_file'."
+            )
         return tool.execute(**kwargs)
 
 

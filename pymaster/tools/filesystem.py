@@ -60,6 +60,14 @@ def read_file(path: str, start_line: Optional[int] = None, end_line: Optional[in
     },
 )
 def write_file(path: str, content: str, overwrite: bool = True) -> str:
+    # Reject raw XML tool hallucination
+    trimmed = content.strip()
+    if trimmed.startswith("<tools>") or trimmed.startswith("<function>") or "<function_name>" in trimmed:
+        return (
+            f"Error: Invalid content. The 'content' argument contains internal tool XML markup instead of actual Python code.\n"
+            f"Please write pure Python code (e.g. import pygame, def main(): ...)."
+        )
+
     target_path = Path(path).resolve()
     if target_path.exists() and not overwrite:
         return f"Error: File '{path}' already exists and overwrite=False."
@@ -96,7 +104,10 @@ def edit_file(path: str, target: str, replacement: str) -> str:
             content = f.read()
 
         if target not in content:
-            return f"Error: Exact target text not found in '{path}'. Please ensure exact indentation and whitespace."
+            return (
+                f"Error: Exact target text not found in '{path}'.\n"
+                f"Tip: Do not repeat failing edit_file calls. Instead, use 'write_file' with overwrite=true to write the complete updated file directly."
+            )
 
         occurrences = content.count(target)
         new_content = content.replace(target, replacement, 1)

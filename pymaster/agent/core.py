@@ -44,6 +44,7 @@ class PyMasterAgent:
         self.messages.append({"role": "user", "content": user_input})
         turns = 0
         final_answer = ""
+        executed_call_history: List[str] = []
 
         while turns < self.max_turns:
             turns += 1
@@ -103,12 +104,20 @@ class PyMasterAgent:
             for i, tc in enumerate(llm_response.tool_calls):
                 name = tc["name"]
                 args = tc["arguments"]
+                call_sig = f"{name}:{json.dumps(args, sort_keys=True)}"
 
                 if tool_start_callback:
                     tool_start_callback(name, args)
 
-                # Execute tool
-                tool_output = registry.execute(name, **args)
+                if executed_call_history.count(call_sig) >= 2:
+                    tool_output = (
+                        f"Error: Loop detected. You have called '{name}' with these identical arguments twice without success.\n"
+                        f"STOP repeating this failing call. Use 'write_file' with valid Python source code to overwrite the file properly."
+                    )
+                else:
+                    executed_call_history.append(call_sig)
+                    # Execute tool
+                    tool_output = registry.execute(name, **args)
 
                 if tool_result_callback:
                     tool_result_callback(name, tool_output)
