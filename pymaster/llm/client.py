@@ -181,4 +181,17 @@ class LocalLLMClient:
             except Exception:
                 continue
 
+        # 3. Fallback: Parse naked JSON object containing "name" / "tool" and "arguments" / "args"
+        if not parsed:
+            naked_matches = re.findall(r'(\{\s*"(?:name|tool)"\s*:\s*"[^"]+".*?\})', total_text, re.DOTALL)
+            for raw_json in naked_matches:
+                try:
+                    data = json.loads(raw_json)
+                    name = data.get("tool") or data.get("name")
+                    args = data.get("args") or data.get("arguments") or data.get("parameters") or {}
+                    if name:
+                        parsed.append({"name": name, "arguments": args})
+                except Exception:
+                    continue
+
         return parsed
