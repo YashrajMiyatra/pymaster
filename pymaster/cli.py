@@ -3,8 +3,23 @@ Interactive Rich Terminal Interface for PyMaster.
 """
 
 import sys
+import os
 import argparse
 from typing import Dict, Any
+
+# Ensure UTF-8 output on Windows consoles to prevent cp1252 charmap encoding crashes
+if sys.platform == "win32":
+    if hasattr(sys.stdout, "reconfigure"):
+        try:
+            sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
+    if hasattr(sys.stderr, "reconfigure"):
+        try:
+            sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
+
 from rich.console import Console
 from rich.panel import Panel
 from rich.markdown import Markdown
@@ -16,7 +31,7 @@ from pymaster.agent.core import PyMasterAgent
 from pymaster.llm.client import LocalLLMClient
 from pymaster.tools.base import registry
 
-console = Console()
+console = Console(safe_box=True)
 
 
 def print_banner(model: str, endpoint: str, healthy: bool):
@@ -52,7 +67,7 @@ def display_tools_table():
 
 
 def on_tool_start(name: str, args: Dict[str, Any]):
-    console.print(f"\n[bold yellow]⚡ [Tool Call][/bold yellow] [bold cyan]{name}[/bold cyan]")
+    console.print(f"\n[bold yellow]>> [Tool Call][/bold yellow] [bold cyan]{name}[/bold cyan]")
     if "content" in args and len(args["content"]) > 100:
         # Don't flood the terminal if writing a large file
         preview_args = dict(args)
@@ -66,10 +81,10 @@ def on_tool_result(name: str, result: Any):
     res_str = str(result)
     if "Error" in res_str or "FAILED" in res_str or "SYNTAX ERROR" in res_str:
         color = "red"
-        icon = "❌"
+        icon = "[FAIL]"
     else:
         color = "green"
-        icon = "✔️"
+        icon = "[OK]"
 
     preview = res_str[:400] + ("..." if len(res_str) > 400 else "")
     console.print(f"   [bold {color}]{icon} [{name} Result]:[/bold {color}] {preview}\n")
