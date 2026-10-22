@@ -111,12 +111,27 @@ def interactive_repl(agent: PyMasterAgent, model: str, endpoint: str):
 
         if user_input.lower() == "/help":
             console.print(Panel("""[bold white]PyMaster Commands:[/bold white]
-  [cyan]/tools[/cyan]   - List all available inspection, editing, and execution tools
-  [cyan]/models[/cyan]  - List models found on the local server
-  [cyan]/reset[/cyan]   - Clear conversation context and start fresh
-  [cyan]/exit[/cyan]    - Exit PyMaster
+  [cyan]/model <name>[/cyan] - Switch active model (e.g. /model qwen2.5-coder:3b)
+  [cyan]/models[/cyan]       - List all models found on the local server
+  [cyan]/tools[/cyan]        - List all available inspection, editing, and execution tools
+  [cyan]/reset[/cyan]        - Clear conversation context and start fresh
+  [cyan]/exit[/cyan]         - Exit PyMaster
   [cyan]<anything else>[/cyan] - Natural language request to architect, build, or debug Python code!
 """, border_style="blue"))
+            continue
+
+        if user_input.lower().startswith("/model"):
+            parts = user_input.split(maxsplit=1)
+            if len(parts) > 1 and parts[1].strip():
+                new_model = parts[1].strip()
+                agent.llm.model = new_model
+                console.print(f"[bold green]✔ Switched active model to:[/bold green] [bold cyan]{new_model}[/bold cyan]")
+            else:
+                models = agent.llm.list_local_models()
+                console.print(f"[bold yellow]Current model:[/bold yellow] {agent.llm.model}")
+                if models:
+                    console.print(f"[bold green]Available models to switch to:[/bold green] {', '.join(models)}")
+                    console.print("[dim]Usage: /model <name> (e.g. /model qwen2.5-coder:3b)[/dim]")
             continue
 
         if user_input.lower() == "/tools":
@@ -174,11 +189,16 @@ def main():
     available_models = client.list_local_models()
     if not args.model:
         if available_models:
-            # Prefer code models if available, otherwise first loaded model
-            coder_models = [m for m in available_models if "code" in m.lower()]
-            client.model = coder_models[0] if coder_models else available_models[0]
+            # Prefer 3b for maximum speed on consumer GPUs, then 7b, then others
+            if "qwen2.5-coder:3b" in available_models:
+                client.model = "qwen2.5-coder:3b"
+            elif "qwen2.5-coder:7b" in available_models:
+                client.model = "qwen2.5-coder:7b"
+            else:
+                coder_models = [m for m in available_models if "code" in m.lower()]
+                client.model = coder_models[0] if coder_models else available_models[0]
         else:
-            client.model = "qwen2.5-coder:1.5b"
+            client.model = "qwen2.5-coder:3b"
     else:
         client.model = args.model
 
