@@ -73,6 +73,10 @@ class LocalLLMClient:
             "messages": messages,
             "temperature": temperature,
             "stream": True,
+            "options": {
+                "num_ctx": 2048,
+                "num_gpu": 99,
+            },
         }
 
         if tools:
