@@ -92,6 +92,14 @@ class LocalLLMClient:
                 ) as response:
                     if response.status_code != 200:
                         err_text = response.read().decode("utf-8", errors="replace")
+                        if response.status_code == 404 and "model" in err_text:
+                            avail = self.list_local_models()
+                            avail_str = ", ".join(f"'{m}'" for m in avail) if avail else "none"
+                            raise RuntimeError(
+                                f"Model '{self.model}' is not found in your local server.\n"
+                                f"Available local models: [{avail_str}].\n"
+                                f"Solution: Run with '--model {avail[0] if avail else 'your-model'}' or download via 'ollama pull {self.model}'"
+                            )
                         raise RuntimeError(f"HTTP {response.status_code}: {err_text}")
 
                     for line in response.iter_lines():

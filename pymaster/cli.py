@@ -121,38 +121,67 @@ def interactive_repl(agent: PyMasterAgent, model: str, endpoint: str):
             console.print("[bold green]Conversation context reset.[/bold green]")
             continue
 
+        # Clean input if user accidentally pasted command-line syntax into the REPL
+        cleaned_input = user_input.strip()
+        if "--prompt" in cleaned_input:
+            import re
+            match = re.search(r'--prompt\s+["\']?([^"\']+)["\']?', cleaned_input)
+            if match:
+                cleaned_input = match.group(1).strip()
+        elif cleaned_input.startswith("python -m pymaster.cli"):
+            cleaned_input = cleaned_input.replace("python -m pymaster.cli", "").strip().strip('"\'')
+
         # Agent execution
         console.print("[dim]Thinking & Architecting...[/dim]")
-        agent.run_turn(
-            user_input=user_input,
-            token_callback=lambda token: console.print(token, end="", style="bright_white"),
-            tool_start_callback=on_tool_start,
-            tool_result_callback=on_tool_result,
-        )
+        try:
+            agent.run_turn(
+                user_input=cleaned_input,
+                token_callback=lambda token: console.print(token, end="", style="bright_white"),
+                tool_start_callback=on_tool_start,
+                tool_result_callback=on_tool_result,
+            )
+        except Exception as e:
+            console.print(Panel(f"[bold red]Execution Error:[/bold red] {e}", border_style="red"))
         console.print("\n")
 
 
 def main():
     parser = argparse.ArgumentParser(description="PyMaster: Autonomous Local Python Coding Agent")
-    parser.add_argument("--model", type=str, default="qwen2.5-coder:1.5b", help="Model name (e.g. qwen2.5-coder:1.5b, qwen2.5-coder:7b)")
+    parser.add_argument("--model", type=str, default="", help="Model name (e.g. qwen3.5:4b, qwen2.5-coder:1.5b)")
     parser.add_argument("--url", type=str, default="http://localhost:11434/v1", help="Local endpoint URL")
     parser.add_argument("--prompt", type=str, default="", help="Single prompt execution mode")
     parser.add_argument("--max-turns", type=int, default=15, help="Maximum agent autonomous turns")
     args = parser.parse_args()
 
-    client = LocalLLMClient(base_url=args.url, model=args.model)
+    client = LocalLLMClient(base_url=args.url, model=args.model or "qwen2.5-coder:1.5b")
+    
+    # Auto-detect available model if not explicitly specified
+    available_models = client.list_local_models()
+    if not args.model:
+        if available_models:
+            # Prefer code models if available, otherwise first loaded model
+            coder_models = [m for m in available_models if "code" in m.lower()]
+            client.model = coder_models[0] if coder_models else available_models[0]
+        else:
+            client.model = "qwen2.5-coder:1.5b"
+    else:
+        client.model = args.model
+
     agent = PyMasterAgent(llm_client=client, max_turns=args.max_turns)
 
     if args.prompt:
-        console.print(f"[bold cyan]Running task:[/bold cyan] {args.prompt}")
-        agent.run_turn(
-            user_input=args.prompt,
-            token_callback=lambda token: console.print(token, end="", style="white"),
-            tool_start_callback=on_tool_start,
-            tool_result_callback=on_tool_result,
-        )
+        console.print(f"[bold cyan]Running task:[/bold cyan] {args.prompt} (Model: [green]{client.model}[/green])")
+        try:
+            agent.run_turn(
+                user_input=args.prompt,
+                token_callback=lambda token: console.print(token, end="", style="white"),
+                tool_start_callback=on_tool_start,
+                tool_result_callback=on_tool_result,
+            )
+        except Exception as e:
+            console.print(Panel(f"[bold red]Execution Error:[/bold red] {e}", border_style="red"))
     else:
-        interactive_repl(agent, args.model, args.url)
+        interactive_repl(agent, client.model, args.url)
 
 
 if __name__ == "__main__":
